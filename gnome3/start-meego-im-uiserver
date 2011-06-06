@@ -1,0 +1,14 @@
+#!/bin/sh
+
+export DISPLAY=:0
+export LD_LIBRARY_PATH=/usr/lib
+
+# cleanup hack
+rm -fr /tmp/meego-im-uiserver*
+
+/usr/bin/meego-im-uiserver \
+-bypass-wm-hint -software -local-theme -output-level debug -target WeTab -use-window-relocation \
+2>&1 | tee /tmp/meego-im-uiserver.log
+
+# cleanup hack
+rm -fr /tmp/meego-im-uiserver*

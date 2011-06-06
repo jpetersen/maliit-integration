@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Xbindkeys for additional hardware key bindings
+Exec=xbindkeys -f /etc/xbindkeys.conf
+Terminal=false
+OnlyShowIn=GNOME;
+X-GNOME-Autostart-Phase=Application
+X-GNOME-Autostart-Notify=true
+X-GNOME-AutoRestart=true

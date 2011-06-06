@@ -1,0 +1,83 @@
+#!/usr/bin/env python
+
+import sys, subprocess, shlex, optparse
+
+orientation_map = {
+    # xrandr_orientation, swap_axes, invert_x, invert_y
+    "normal": ("normal", 0, 0, 0),
+    "left": ("left", 1, 1, 0)
+}
+
+input_device_name = "eGalax Inc. USB TouchController"
+xrandr_output = "LVDS1"
+
+def rotate(orientation):
+    """Rotate the screen to the given orientation."""
+
+    xrandr_orientation, swap_axes, invert_x, invert_y = orientation_map[orientation]
+
+    xrandr_command = 'xrandr --output %s --rotate %s' % (xrandr_output, xrandr_orientation)
+    xinput_swap_axes_command = 'xinput --set-int-prop "%s" "Evdev Axes Swap" 8 %d' % (input_device_name, swap_axes)
+    xinput_invert_axis_command = 'xinput --set-int-prop "%s" "Evdev Axis Inversion" 8 %d %d' % (input_device_name, invert_x, invert_y)
+
+    # Rotate screen
+    subprocess.call(shlex.split(xrandr_command))
+
+    # Rotate input device
+    subprocess.call(shlex.split(xinput_swap_axes_command))
+    subprocess.call(shlex.split(xinput_invert_axis_command))
+
+    # Rotate input method
+    # TODO
+
+def get_current_orientation():
+    xrandr_query_command = "xrandr --query"
+
+    output = subprocess.check_output(shlex.split(xrandr_query_command))
+    for line in output.split('\n'):
+        if line.startswith(xrandr_output):
+            # Expected input one of the following forms
+            # "LVDS1 connected 768x1366+0+0 left (normal left inverted right x axis y axis) 256m  x 144mm"
+            # "LVDS1 connected 1366x768+0+0 (normal left inverted right x axis y axis) 256mm x 144mm"
+            # "VGA1 disconnected (normal left inverted right x axis y axis)"
+            if not "connected" in line:
+                raise Exception, "output is not active"
+
+            item = line.split(' ')[3]
+            if item.startswith('('):
+                return "normal"
+            elif item in orientation_map.keys():
+                return item
+
+
+def toggle_orientation_left_normal():
+    """Toggle the orientation between left and normal."""
+    
+    current = get_current_orientation()
+    if current == 'left':
+        rotate('normal')
+    elif current == 'normal':
+        rotate('left')
+    else:
+        return -1
+
+if __name__ == "__main__":
+    supported_orientations = orientation_map.keys()
+
+    parser = optparse.OptionParser()
+    parser.add_option("-t", "--toggle", action="store_true", dest="toggle")
+    parser.add_option("-o", "--orientation", action="store", type="string", dest="toggle")
+    options, args = parser.parse_args()
+
+    if options.toggle:
+        ret = toggle_orientation_left_normal()
+        sys.exit(ret)
+
+    else:
+        if len(args) != 1 or args[0] not in supported_orientations:
+            print "usage:"
+            sys.exit(0)
+        ret = rotate(args[0])
+        sys.exit(ret)
+
+

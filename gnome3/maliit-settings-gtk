@@ -1,0 +1,125 @@
+#!/usr/bin/env python
+
+import gtk, gobject, gconf
+import sys, os, os.path
+
+gconf_base_path = '/meegotouch/inputmethods'
+gconf_keys = {
+	'layouts': '/meegotouch/inputmethods/virtualkeyboard/layouts'
+}
+layout_files_path = '/usr/share/meegotouch/virtual-keyboard/layouts/'
+
+class MaliitSettingsApplication:
+
+	def __init__(self):
+		self._init_ui()
+
+	def _init_ui(self):
+		self.window = win = gtk.Window()
+
+		self.layouts_widget = widget = KeyboardLayoutsWidget()
+		
+		win.add(widget)
+		win.show_all()
+
+	def run(self):
+		gtk.main()
+
+
+class KeyboardLayoutsWidget(gtk.TreeView):
+	def __init__(self):
+		gtk.TreeView.__init__(self)
+
+		self._implementation = KeyboardLayoutsWidgetImplementation()
+
+		self.set_model(self._implementation.model)
+		self._implementation.selection = self.get_selection()
+
+		self._id_column = gtk.TreeViewColumn('Layout Id')
+		self.append_column(self._id_column)
+		self._id_cell = gtk.CellRendererText()
+		self._id_column.pack_start(self._id_cell, True)
+		self._id_column.add_attribute(self._id_cell, 'text', 0)
+
+def inverse_map(mapping):
+	return dict((v,k) for k, v in mapping.iteritems())
+
+
+class KeyboardLayoutsWidgetImplementation():
+	def __init__(self):
+
+		self._model = gtk.ListStore(gobject.TYPE_STRING)
+
+		self._init()
+
+	def _init(self):
+		self._gconf_client = client = gconf.client_get_default()
+		client.add_dir(gconf_base_path, gconf.CLIENT_PRELOAD_NONE)
+		client.notify_add(gconf_keys['layouts'], self._active_layouts_changed)
+
+		self._layout_iter_map = {}
+
+		for layout in self._get_available_layouts():
+			row = (layout,)
+			i = self.model.append(row)
+			self._layout_iter_map[layout] = i
+
+	def set_selection(self, selection):
+		self._selection = selection
+		selection.set_mode(gtk.SELECTION_MULTIPLE)
+		
+		for layout in self._get_current_active_layouts():
+			i = self._get_iter_from_layout_file(layout)
+			self.selection.select_iter(i)
+
+	def get_selection(self):
+		return self._selection	
+	selection = property(get_selection, set_selection)
+
+	def get_model(self):
+		return self._model
+	model = property(get_model)
+
+	def _active_layouts_changed(self, client, *args, **kwargs):
+		layouts = client.get_list(gconf_keys['layouts'], "string")
+
+		# Unselect
+		selected_paths = self.selection.get_selected_rows()[1]
+		for path in selected_paths:
+			self.selection.unselect_path(path)
+
+		# Select
+		for layout in layouts:
+			tree_iter = self._get_iter_from_layout_file(layout)
+			self.selection.select_iter(tree_iter)
+
+	def _get_current_active_layouts(self):
+		return self._gconf_client.get_list(gconf_keys['layouts'], "string")
+
+	def _get_iter_from_layout_file(self, filename):
+		return self._layout_iter_map[filename]
+
+	def _get_available_layouts(self):
+		# Assumes every layout file is valid
+		layout_files = os.listdir(layout_files_path)
+
+		def is_valid_layout(layout_file):
+			prefix_blacklist = ['symbols', 'test', 'hwsymbols', 
+								'phonenumber', 'number', 'hwkb']
+			l = layout_file
+
+			if not l.endswith('.xml'):
+				return False
+
+			for prefix in prefix_blacklist:
+				if l.startswith(prefix):
+					return False
+
+			return True
+
+		return [l for l in layout_files if is_valid_layout(l)]
+
+if __name__ == '__main__':
+	app = MaliitSettingsApplication()
+	app.run()
+

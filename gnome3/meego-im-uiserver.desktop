@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Meego Input Method server
+Exec=start-meego-im-uiserver
+Terminal=false
+OnlyShowIn=GNOME;
+X-GNOME-Autostart-Phase=Application
+X-GNOME-Autostart-Notify=true
+X-GNOME-AutoRestart=true
